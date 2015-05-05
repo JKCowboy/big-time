@@ -1,77 +1,81 @@
 {
-  "uuid": "afcc6876-8f84-44e0-bb8b-023ffb2d7c2c",
-  "shortName": "Big Time",
-  "longName": "Big Time",
-  "companyName": "Pebble Technology",
-  "versionCode": 6,
-  "versionLabel": "6.0",
-  "watchapp": {
-    "watchface": true
-  },
-  "appKeys": {},
-  "resources": {
-    "media": [
-      {
-        "menuIcon": true,
-        "type": "png",
-        "name": "IMAGE_MENU_ICON",
-        "file": "images/menu_icon_big_watch.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_0",
-        "file": "images/num_0.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_1",
-        "file": "images/num_1.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_2",
-        "file": "images/num_2.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_3",
-        "file": "images/num_3.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_4",
-        "file": "images/num_4.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_5",
-        "file": "images/num_5.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_6",
-        "file": "images/num_6.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_7",
-        "file": "images/num_7.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_8",
-        "file": "images/num_8.png"
-      },
-      {
-        "type": "png",
-        "name": "IMAGE_NUM_9",
-        "file": "images/num_9.png"
-      }
-    ]
-  },
-  "targetPlatforms": [
-    "aplite",
-    "basalt"
-  ],
-  "sdkVersion": "3"
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "Rubicon Technology",
+    "longName": "Big Time Redux",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/num_9.png",
+                "name": "IMAGE_NUM_9",
+                "type": "png"
+            },
+            {
+                "file": "images/num_8.png",
+                "name": "IMAGE_NUM_8",
+                "type": "png"
+            },
+            {
+                "file": "images/num_7.png",
+                "name": "IMAGE_NUM_7",
+                "type": "png"
+            },
+            {
+                "file": "images/num_6.png",
+                "name": "IMAGE_NUM_6",
+                "type": "png"
+            },
+            {
+                "file": "images/num_5.png",
+                "name": "IMAGE_NUM_5",
+                "type": "png"
+            },
+            {
+                "file": "images/num_4.png",
+                "name": "IMAGE_NUM_4",
+                "type": "png"
+            },
+            {
+                "file": "images/num_3.png",
+                "name": "IMAGE_NUM_3",
+                "type": "png"
+            },
+            {
+                "file": "images/num_2.png",
+                "name": "IMAGE_NUM_2",
+                "type": "png"
+            },
+            {
+                "file": "images/num_1.png",
+                "name": "IMAGE_NUM_1",
+                "type": "png"
+            },
+            {
+                "file": "images/num_0.png",
+                "name": "IMAGE_NUM_0",
+                "type": "png"
+            },
+            {
+                "file": "images/menu_icon_big_watch.png",
+                "menuIcon": true,
+                "name": "IMAGE_MENU_ICON",
+                "type": "png"
+            }
+        ]
+    },
+    "sdkVersion": "3",
+    "shortName": "Big Time Redux",
+    "targetPlatforms": [
+        "aplite",
+        "basalt"
+    ],
+    "uuid": "afcc6876-8f84-44e0-bb8b-023ffb2d7c2c",
+    "versionCode": 6,
+    "versionLabel": "0.1",
+    "watchapp": {
+        "watchface": true
+    }
 }

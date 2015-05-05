@@ -3,7 +3,7 @@
 static Window *s_main_window;
 
 // There's only enough memory to load about 6 of 10 required images
-// so we have to swap them in & out...
+// so we have to swap them in & out... (Ouch!)
 //
 // We have one "slot" per digit location on screen.
 //
