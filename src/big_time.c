@@ -1,6 +1,12 @@
 #include <pebble.h>
 
+
+  
 static Window *s_main_window;
+
+static PropertyAnimation *s_property_animation;
+static PropertyAnimation *s_property_animation_out;
+
 
 // There's only enough memory to load about 6 of 10 required images
 // so we have to swap them in & out... (Ouch!)
@@ -15,6 +21,9 @@ static Window *s_main_window;
 //     2 3
 #define TOTAL_IMAGE_SLOTS 4
 #define NUMBER_OF_IMAGES 10
+#define TRANSITION_MS 900
+#define DIGIT_WIDTH  72
+#define DIGIT_HEIGHT  84
 
 // These images are 72 x 84 pixels (i.e. a quarter of the display),
 // black and white with the digit character centered in the image.
@@ -37,7 +46,12 @@ static BitmapLayer *s_image_layers[TOTAL_IMAGE_SLOTS];
 // restriction mentioned above.
 static int s_image_slot_state[TOTAL_IMAGE_SLOTS] = {EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT};
 
+
+
 static void load_digit_image_into_slot(int slot_number, int digit_value) {
+  
+ 
+  
   /*
    * Loads the digit image from the application's resources and
    * displays it on-screen in the correct location.
@@ -48,11 +62,9 @@ static void load_digit_image_into_slot(int slot_number, int digit_value) {
   if ((slot_number < 0) || (slot_number >= TOTAL_IMAGE_SLOTS)) {
     return;
   }
-
   if ((digit_value < 0) || (digit_value > 9)) {
     return;
   }
-
   if (s_image_slot_state[slot_number] != EMPTY_SLOT) {
     return;
   }
@@ -64,21 +76,102 @@ static void load_digit_image_into_slot(int slot_number, int digit_value) {
 #else
   GRect bounds = s_images[slot_number]->bounds;
 #endif
-  BitmapLayer *bitmap_layer = bitmap_layer_create(GRect((slot_number % 2) * 72, (slot_number / 2) * 84, bounds.size.w, bounds.size.h));
+
+  
+
+  
+  
+  
+  //defaults are for slot0
+  //slide in virtically
+  int startx,starty,endx,endy;
+   startx = 0 ;
+   starty = 0 - DIGIT_HEIGHT;
+   endx = 0;
+   endy = 0;
+  if(slot_number==1){
+    startx = DIGIT_WIDTH;
+    endx = DIGIT_WIDTH;
+  } else if(slot_number==2){
+    starty = DIGIT_HEIGHT * 2;
+    endy= DIGIT_HEIGHT;
+  }  else if(slot_number==3){
+    startx = DIGIT_WIDTH;
+    endx = DIGIT_WIDTH;
+    starty = DIGIT_HEIGHT * 2;
+    endy= DIGIT_HEIGHT;
+  }
+  
+
+  //animated...
+  GRect from_frame = GRect(startx, starty, bounds.size.w, bounds.size.h);
+  GRect to_frame = GRect(endx, endy, bounds.size.w, bounds.size.h);
+
+  BitmapLayer *bitmap_layer = bitmap_layer_create(from_frame);
   s_image_layers[slot_number] = bitmap_layer;
   bitmap_layer_set_bitmap(bitmap_layer, s_images[slot_number]);
   Layer *window_layer = window_get_root_layer(s_main_window);
   layer_add_child(window_layer, bitmap_layer_get_layer(bitmap_layer));
+   
+  // Create the animation
+  s_property_animation = property_animation_create_layer_frame(bitmap_layer_get_layer(bitmap_layer), &from_frame, &to_frame);
+  //set duration
+  animation_set_duration((Animation*) s_property_animation, TRANSITION_MS);
+  
+  animation_set_delay((Animation*) s_property_animation, TRANSITION_MS);
+  // Schedule to occur ASAP with default settings
+//   animation_schedule((Animation*) s_property_animation);
+
+  
 }
 
+
+
 static void unload_digit_image_from_slot(int slot_number) {
+  
+  //slide out horizontially...
+  int startx,starty,endx,endy;
+   startx = 0 ;
+   starty = 0 ;
+   endx = 0-DIGIT_HEIGHT;
+   endy = 0;
+  if(slot_number==1){
+    startx = DIGIT_WIDTH;
+    endx = DIGIT_WIDTH*2;
+  } else if(slot_number==2){
+    starty = DIGIT_HEIGHT;
+    endy= DIGIT_HEIGHT;
+  }  else if(slot_number==3){
+    startx = DIGIT_WIDTH;
+    starty = DIGIT_HEIGHT ;
+    endx = DIGIT_WIDTH*2;
+    endy= DIGIT_HEIGHT;
+  }
+  #ifdef PBL_PLATFORM_BASALT
+    GRect bounds = gbitmap_get_bounds(s_images[slot_number]);
+  #else
+    GRect bounds = s_images[slot_number]->bounds;
+  #endif
+  GRect from_frame = GRect(startx, starty, bounds.size.w, bounds.size.h);
+  GRect to_frame = GRect(endx, endy, bounds.size.w, bounds.size.h);
   if (s_image_slot_state[slot_number] != EMPTY_SLOT) {
-    layer_remove_from_parent(bitmap_layer_get_layer(s_image_layers[slot_number]));
-    bitmap_layer_destroy(s_image_layers[slot_number]);
-    gbitmap_destroy(s_images[slot_number]);
-    s_image_slot_state[slot_number] = EMPTY_SLOT;
+    //animate...
+    s_property_animation_out = property_animation_create_layer_frame(bitmap_layer_get_layer(s_image_layers[slot_number]), &from_frame, &to_frame);
+    //set duration
+    animation_set_duration((Animation*) s_property_animation_out, TRANSITION_MS);
+    // Schedule to occur ASAP with default settings
+    animation_schedule((Animation*) s_property_animation_out);
+    
+    //destroy now
+//     layer_remove_from_parent(bitmap_layer_get_layer(s_image_layers[slot_number]));
+//     bitmap_layer_destroy(s_image_layers[slot_number]);
+//     gbitmap_destroy(s_images[slot_number]);
+//     s_image_slot_state[slot_number] = EMPTY_SLOT;
+    
   }
 }
+
+
 
 static void display_value(unsigned short value, unsigned short row_number, bool show_first_leading_zero) {
   value = value % 100; // Maximum of two digits per row.
@@ -96,40 +189,56 @@ static void display_value(unsigned short value, unsigned short row_number, bool 
   }
 }
 
+
+
+
 static unsigned short get_display_hour(unsigned short hour) {
   if (clock_is_24h_style()) {
     return hour;
   }
-
   unsigned short display_hour = hour % 12;
-
   // Converts "0" to "12"
   return display_hour ? display_hour : 12;
-
 }
+
+
 
 static void display_time(struct tm *tick_time) {
   display_value(get_display_hour(tick_time->tm_hour), 0, false);
-  display_value(tick_time->tm_min, 1, true);
+//   display_value(tick_time->tm_min, 1, true);
+  display_value(tick_time->tm_sec, 1, true);
 }
 
+
+
 static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
-  display_time(tick_time);
+  int seconds = tick_time->tm_sec;
+  if(seconds % 3 == 0){
+     display_time(tick_time); 
+  }
+//   display_time(tick_time);
 }
+
+
 
 static void main_window_load(Window *window) {
   time_t now = time(NULL);
   struct tm *tick_time = localtime(&now);
   display_time(tick_time);
 
-  tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
+//   tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
+  tick_timer_service_subscribe(SECOND_UNIT, handle_minute_tick);
 }
+
+
 
 static void main_window_unload(Window *window) {
   for (int i = 0; i < TOTAL_IMAGE_SLOTS; i++) {
     unload_digit_image_from_slot(i);
   }
 }
+
+
 
 static void init() {
   s_main_window = window_create();
@@ -141,9 +250,13 @@ static void init() {
   window_stack_push(s_main_window, true);
 }
 
+
+
 static void deinit() {
   window_destroy(s_main_window);
 }
+
+
 
 int main(void) {
   init();
