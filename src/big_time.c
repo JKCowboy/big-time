@@ -1,22 +1,11 @@
 #include <pebble.h>
 
+  
 /*
 ref: http://www.newty.de/fpt/fpt.html#passPtr
 */
 
-static Window *s_main_window;
-
-static PropertyAnimation *s_property_animation;
-
-short displayed_hour_digit_0 = -1;
-short displayed_hour_digit_1 = -1;
-short displayed_minute_digit_0 = -1;
-short displayed_minute_digit_1 = -1;
-short new_hour_digit_0 = -1;
-short new_hour_digit_1 = -1;
-short new_minute_digit_0 = -1;
-short new_minute_digit_1 = -1;
-
+  
 // There's only enough memory to load about 6 of 10 required images
 // so we have to swap them in & out... (Ouch!)
 //
@@ -30,9 +19,28 @@ short new_minute_digit_1 = -1;
 //     2 3
 #define TOTAL_IMAGE_SLOTS 4
 #define NUMBER_OF_IMAGES 10
-#define TRANSITION_MS 900
+#define TRANSITION_MS_DEFAULT 2000
 #define DIGIT_WIDTH  72
-#define DIGIT_HEIGHT  84
+#define DIGIT_HEIGHT  84  
+#define EMPTY_SLOT -1
+  
+  
+static Window *s_main_window;
+
+static PropertyAnimation *s_property_animation;
+
+short displayed_hour_digit_0 = -1;
+short displayed_hour_digit_1 = -1;
+short displayed_minute_digit_0 = -1;
+short displayed_minute_digit_1 = -1;
+short new_hour_digit_0 = -1;
+short new_hour_digit_1 = -1;
+short new_minute_digit_0 = -1;
+short new_minute_digit_1 = -1;
+int transition_ms = TRANSITION_MS_DEFAULT;
+bool animate_all_digits = true;
+
+
 
 // These images are 72 x 84 pixels (i.e. a quarter of the display),
 // black and white with the digit character centered in the image.
@@ -47,7 +55,6 @@ const int IMAGE_RESOURCE_IDS[NUMBER_OF_IMAGES] = {
 static GBitmap *s_images[TOTAL_IMAGE_SLOTS];
 static BitmapLayer *s_image_layers[TOTAL_IMAGE_SLOTS];
 
-#define EMPTY_SLOT -1
 
 // The state is either "empty" or the digit of the image currently in
 // the slot--which was going to be used to assist with de-duplication
@@ -77,22 +84,6 @@ static void load_digit_image_into_slot(int slot_number, int digit_value, void *n
   
   
   
-//    if ((slot_number < 0) || (slot_number >= TOTAL_IMAGE_SLOTS)) {
-//     return;
-//   }
-//   if ((digit_value < 0) || (digit_value > 9)) {
-//     return;
-//   }
-  if (s_image_slot_state[slot_number] != EMPTY_SLOT) {
-    return;
-  }
-
-  
-
-  
-  
-  
-  
   s_image_slot_state[slot_number] = digit_value;
   s_images[slot_number] = gbitmap_create_with_resource(IMAGE_RESOURCE_IDS[digit_value]);
   #ifdef PBL_PLATFORM_BASALT
@@ -100,11 +91,9 @@ static void load_digit_image_into_slot(int slot_number, int digit_value, void *n
   #else
     GRect bounds = s_images[slot_number]->bounds;
   #endif
-
-  
   
   //defaults are for slot0
-  //slide in virtically
+  //slide in vertically
   int startx,starty,endx,endy;
   startx = 0 ;
   starty = 0 - DIGIT_HEIGHT;
@@ -134,10 +123,16 @@ static void load_digit_image_into_slot(int slot_number, int digit_value, void *n
   Layer *window_layer = window_get_root_layer(s_main_window);
   layer_add_child(window_layer, bitmap_layer_get_layer(bitmap_layer));
 
+  #ifdef PBL_PLATFORM_APLITE
+    // Free the animation
+    property_animation_destroy(s_property_animation);
+  #endif
+  
+  
   // Create the animation
   s_property_animation = property_animation_create_layer_frame(bitmap_layer_get_layer(bitmap_layer), &from_frame, &to_frame);
   //set duration
-  animation_set_duration((Animation*) s_property_animation, TRANSITION_MS);
+  animation_set_duration((Animation*) s_property_animation, transition_ms);
   if(next_call!=NULL){
     animation_set_handlers((Animation*) s_property_animation, (AnimationHandlers) {
       .stopped = (AnimationStoppedHandler) next_call
@@ -153,10 +148,20 @@ static void load_digit_image_into_slot(int slot_number, int digit_value, void *n
 
 
 static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot, unloading slot %d", slot_number);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: unloading slot %d", slot_number);
 
+  
+  if( s_image_slot_state[slot_number] == EMPTY_SLOT){
+    //nothing to unload...
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: slot #%d is empty", slot_number);
+    if(next_call!=NULL){
+      (*next_call)(); 
+    }
+    return;
+  } 
   //slide out horizontially...
   int startx,starty,endx,endy;
+     APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive -2");
   startx = 0 ;
   starty = 0 ;
   endx = 0-DIGIT_HEIGHT;
@@ -174,17 +179,28 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
     endy= DIGIT_HEIGHT;
   }
   #ifdef PBL_PLATFORM_BASALT
-  GRect bounds = gbitmap_get_bounds(s_images[slot_number]);
+    GRect bounds = gbitmap_get_bounds(s_images[slot_number]);
   #else
-  GRect bounds = s_images[slot_number]->bounds;
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive -1");
+    GRect bounds = s_images[slot_number]->bounds;
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 0");
   #endif
+
   GRect from_frame = GRect(startx, starty, bounds.size.w, bounds.size.h);
   GRect to_frame = GRect(endx, endy, bounds.size.w, bounds.size.h);
   if (s_image_slot_state[slot_number] != EMPTY_SLOT) {
+    #ifdef PBL_PLATFORM_APLITE
+      // Free the animation
+      property_animation_destroy(s_property_animation);
+    #endif
+         APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 1");
+
     //animate...
     s_property_animation = property_animation_create_layer_frame(bitmap_layer_get_layer(s_image_layers[slot_number]), &from_frame, &to_frame);
     //set duration
-    animation_set_duration((Animation*) s_property_animation, TRANSITION_MS);
+    animation_set_duration((Animation*) s_property_animation, transition_ms);
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 2");
+
     if(next_call!=NULL){
       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot, callback handler will be called %d",1);
       animation_set_handlers((Animation*) s_property_animation, (AnimationHandlers) {
@@ -195,34 +211,37 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
 
     }
     animation_schedule((Animation*) s_property_animation);
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 3");
 
-    
   }else{
     //     empty do next call if not null
     if(next_call!=NULL){
       (*next_call)(); 
     }
   }
+  
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "done");
+
 }
 
 
 
 
 static void show_minute1(){
-  if(new_minute_digit_1!=displayed_minute_digit_1){
     //this digit changed   
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute1, digit 1 changing from %d to %d", displayed_minute_digit_1,new_minute_digit_1);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute1, minute digit 1 changing from %d to %d", displayed_minute_digit_1,new_minute_digit_1);
     displayed_minute_digit_1=new_minute_digit_1;
     load_digit_image_into_slot(3,new_minute_digit_1,NULL); 
-  }else{
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute1, digit 1 staying %d", displayed_minute_digit_1);
-    //no change, check next digit...
-  }
 }
 
 static void clear_minute1(){
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute1, digit 1 changing %d", displayed_minute_digit_1);
-  unload_digit_image_from_slot(3,show_minute1);  
+  if(animate_all_digits || new_minute_digit_1!=displayed_minute_digit_1){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute1: minute digit 1 changing %d", displayed_minute_digit_1);
+    unload_digit_image_from_slot(3,show_minute1);  
+  }else{
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute1: minute digit 1 staying %d", displayed_minute_digit_1);
+    //no change, check next digit...
+  }    
 }
 
 
@@ -230,23 +249,23 @@ static void clear_minute1(){
 
 
 static void show_minute0(){
-  if(new_minute_digit_0!=displayed_minute_digit_0){
     //this digit changed   
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute0, digit 0 changing from %d to %d", displayed_minute_digit_0,new_minute_digit_0);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute0, minute digit 0 changing from %d to %d", displayed_minute_digit_0,new_minute_digit_0);
     displayed_minute_digit_0=new_minute_digit_0;
     load_digit_image_into_slot(2,new_minute_digit_0,clear_minute1); 
-  }else{
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute0, minute digit 0 staying %d", displayed_minute_digit_0);
-    clear_minute1();
-  }
 }
 
 
 
 
 static void clear_minute0(){
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute0, digit 0 changing %d", displayed_minute_digit_0);
-  unload_digit_image_from_slot(2,show_minute0);  
+  if(animate_all_digits || new_minute_digit_0!=displayed_minute_digit_0){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute0, minute digit 0 changing %d", displayed_minute_digit_0);
+    unload_digit_image_from_slot(2,show_minute0);  
+  }else{
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute0, minute digit 0 staying %d", displayed_minute_digit_0);
+    clear_minute1();
+  }    
 }
 
 
@@ -256,24 +275,24 @@ static void clear_minute0(){
 
 
 static void show_hour1(){
-  if(new_hour_digit_1!=displayed_hour_digit_1){
     //this digit changed   
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour1, digit 1 changing from %d to %d", displayed_hour_digit_1,new_hour_digit_1);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour1, hour digit 1 changing from %d to %d", displayed_hour_digit_1,new_hour_digit_1);
     displayed_hour_digit_1=new_hour_digit_1;
     load_digit_image_into_slot(1,new_hour_digit_1,clear_minute0); 
-  }else{
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour1, digit 1 staying %d", displayed_hour_digit_1);
-    //no change, check next digit...
-    clear_minute0();
-  }
 }
 
 
 
 
 static void clear_hour1(){
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour1, digit 1 changing %d", displayed_hour_digit_1);
-  unload_digit_image_from_slot(1,show_hour1);  
+  if(animate_all_digits || new_hour_digit_1!=displayed_hour_digit_1){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour1, hour digit 1 changing %d", displayed_hour_digit_1);
+    unload_digit_image_from_slot(1,show_hour1);  
+  }else{
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour1, hour digit 1 staying %d", displayed_hour_digit_1);
+    //no change, check next digit...
+    clear_minute0();
+  }  
 }
 
 
@@ -283,23 +302,22 @@ static void clear_hour1(){
 
 
 static void show_hour0(){
-  if(new_hour_digit_0!=displayed_hour_digit_0){
     //this digit changed
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour0, digit 1 changing from %d to %d", displayed_hour_digit_0, new_hour_digit_0);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour0, hour digit 0 changing from %d to %d", displayed_hour_digit_0, new_hour_digit_0);
     displayed_hour_digit_0=new_hour_digit_0;
-
     load_digit_image_into_slot(0,new_hour_digit_0,clear_hour1); 
-  }else{
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour0, digit 1 staying %d", displayed_hour_digit_0);
-    //no change, check next digit...
-    clear_hour1();
-  }
 }
 
 
 static void clear_hour0(){
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour0, digit 0 changing %d", displayed_hour_digit_0);
-  unload_digit_image_from_slot(0,show_hour0);
+  if(animate_all_digits || new_hour_digit_0!=displayed_hour_digit_0){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour0, hour digit 0 changing %d", displayed_hour_digit_0);
+    unload_digit_image_from_slot(0,show_hour0);
+  }else{
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour0, hour digit 0 staying %d", displayed_hour_digit_0);
+    //no change, check next digit...
+    clear_hour1();
+  }
 }
 
 
@@ -322,11 +340,27 @@ static unsigned short get_display_hour(unsigned short hour) {
 
 static void update_now_digits(struct tm *tick_time){
   short hour = get_display_hour(tick_time->tm_hour);
-  short minutes = tick_time->tm_sec;
+  short minutes = tick_time->tm_min;
   new_hour_digit_0 = hour / 10;
   new_hour_digit_1 = hour % 10;
   new_minute_digit_0 = minutes / 10;
   new_minute_digit_1 = minutes % 10;
+  //for testing force new digit change everytime...
+  new_hour_digit_0 = (displayed_hour_digit_0 + 1) % 10;
+  new_hour_digit_1 = (new_hour_digit_0 + 1)  % 10;
+  new_minute_digit_0 = (new_hour_digit_1 + 1) % 10;
+  new_minute_digit_1 = (new_minute_digit_0 + 1)  % 10;
+
+  //adjust transtion times, more digits changing shorten transition...
+  short digit_change_count =1;
+  if(new_hour_digit_0!=displayed_hour_digit_0) digit_change_count++;
+  if(new_hour_digit_1!=displayed_hour_digit_1) digit_change_count++;
+  if(new_minute_digit_0!=displayed_minute_digit_0) digit_change_count++;
+  if(animate_all_digits) digit_change_count=4;
+  //digit_change_count*2 to account for transition for remove and add of each digit
+  transition_ms = TRANSITION_MS_DEFAULT / (digit_change_count*2);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "update_now_digits: digits changed=%d, transition_time=%d", digit_change_count,transition_ms);
+
 }
 
 
@@ -335,13 +369,10 @@ static void update_now_digits(struct tm *tick_time){
 * digit values and then calls a method that will call others to make the digit changes.
 */
 static void display_time(struct tm *tick_time) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "\n\ndisplay_time, called at %d:%d:%d", tick_time->tm_hour,tick_time->tm_min,tick_time->tm_sec);
+
   //first set now digits...
   update_now_digits(tick_time);
-  //for testing force new digit change everytime...
-  new_hour_digit_0 = (displayed_hour_digit_0 + 1) % 10;
-  new_hour_digit_1 = (displayed_hour_digit_1 + 1)  % 10;
-  new_minute_digit_0 = (displayed_minute_digit_0 + 1) % 10;
-  new_minute_digit_1 = (displayed_minute_digit_1 + 1)  % 10;
   
   
   clear_hour0();
@@ -355,7 +386,7 @@ static void display_time(struct tm *tick_time) {
 */
 static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
   int seconds = tick_time->tm_sec;
-  if(seconds % 4 == 0){
+  if(seconds % 5 == 0){
    display_time(tick_time); 
  }
 }
@@ -365,9 +396,10 @@ static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
 static void main_window_load(Window *window) {
   time_t now = time(NULL);
   struct tm *tick_time = localtime(&now);
+  update_now_digits(tick_time);
   display_time(tick_time);
 
-  //   tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
+    tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
   tick_timer_service_subscribe(SECOND_UNIT, handle_minute_tick);
 }
 

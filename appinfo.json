@@ -4,7 +4,7 @@
         ""
     ],
     "companyName": "Rubicon Technology",
-    "longName": "Big Time Redux",
+    "longName": "Mongo Time",
     "projectType": "native",
     "resources": {
         "media": [
@@ -67,10 +67,9 @@
         ]
     },
     "sdkVersion": "3",
-    "shortName": "Big Time Redux",
+    "shortName": "Mongo Time",
     "targetPlatforms": [
-        "aplite",
-        "basalt"
+        "aplite"
     ],
     "uuid": "afcc6876-8f84-44e0-bb8b-023ffb2d7c2c",
     "versionCode": 6,
