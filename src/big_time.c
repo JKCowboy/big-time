@@ -23,22 +23,19 @@ ref: http://www.newty.de/fpt/fpt.html#passPtr
 #define DIGIT_WIDTH  72
 #define DIGIT_HEIGHT  84  
 #define EMPTY_SLOT -1
-  
+#define TEST_DRIVER false
   
 static Window *s_main_window;
 
 static PropertyAnimation *s_property_animation;
 
-short displayed_hour_digit_0 = -1;
-short displayed_hour_digit_1 = -1;
-short displayed_minute_digit_0 = -1;
-short displayed_minute_digit_1 = -1;
 short new_hour_digit_0 = -1;
 short new_hour_digit_1 = -1;
 short new_minute_digit_0 = -1;
 short new_minute_digit_1 = -1;
 int transition_ms = TRANSITION_MS_DEFAULT;
-bool animate_all_digits = true;
+bool animate_all_digits = false;
+bool first_display_done = false;
 
 
 
@@ -62,8 +59,9 @@ static BitmapLayer *s_image_layers[TOTAL_IMAGE_SLOTS];
 // restriction mentioned above.
 static int s_image_slot_state[TOTAL_IMAGE_SLOTS] = {EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT};
 
-
-
+//Add some prototypes because C is lame...
+static unsigned short get_display_hour(unsigned short hour);
+static void clear_hour0();
 
 static void load_digit_image_into_slot(int slot_number, int digit_value, void *next_call ) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "load_digit_image_into_slot, loading slot %d", slot_number);
@@ -80,8 +78,6 @@ static void load_digit_image_into_slot(int slot_number, int digit_value, void *n
   layer_remove_from_parent(bitmap_layer_get_layer(s_image_layers[slot_number]));
   bitmap_layer_destroy(s_image_layers[slot_number]);
   gbitmap_destroy(s_images[slot_number]);
-  s_image_slot_state[slot_number] = EMPTY_SLOT;
-  
   
   
   s_image_slot_state[slot_number] = digit_value;
@@ -213,8 +209,8 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
     animation_schedule((Animation*) s_property_animation);
       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 3");
 
-  }else{
-    //     empty do next call if not null
+  } else {
+    //     empty slot, do next call...
     if(next_call!=NULL){
       (*next_call)(); 
     }
@@ -225,21 +221,86 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
 }
 
 
+/*
+* This function sets the current time 
+* digit values and then calls a method that will call others to make the digit changes.
+*/
+static void display_time(struct tm *tick_time) {
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "\n\ndisplay_time: called at %d:%d:%d", tick_time->tm_hour,tick_time->tm_min,tick_time->tm_sec);
+
+  //first set now digits...
+  short hour = get_display_hour(tick_time->tm_hour);
+  short minutes = tick_time->tm_min;
+  new_hour_digit_0 = hour / 10;
+  new_hour_digit_1 = hour % 10;
+  new_minute_digit_0 = minutes / 10;
+  new_minute_digit_1 = minutes % 10;
+  //for testing force new digit change everytime...
+  #if TEST_DRIVER
+//    new_hour_digit_0 = (s_image_slot_state[0] + 1) % 10;
+//    new_hour_digit_1 = (new_hour_digit_0 + 1)  % 10;
+//    new_minute_digit_0 = (new_hour_digit_1 + 1) % 10;
+//    new_minute_digit_1 = (new_minute_digit_0 + 1)  % 10;
+  #endif
+  //adjust transtion times, more digits changing shorten transition...
+  short digit_change_count =1;
+  if(new_hour_digit_0!=s_image_slot_state[0]) digit_change_count++;
+  if(new_hour_digit_1!=s_image_slot_state[1]) digit_change_count++;
+  if(new_minute_digit_0!=s_image_slot_state[2]) digit_change_count++;
+  if(animate_all_digits) digit_change_count=4;
+  //digit_change_count*2 to account for transition for remove and add of each digit
+  transition_ms = TRANSITION_MS_DEFAULT / (digit_change_count*2);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "display_time: digits changed=%d, transition_time=%d, new time=%d%d:%d%d", 
+          digit_change_count,transition_ms,new_hour_digit_0,new_hour_digit_1,new_minute_digit_0,new_minute_digit_1);
+
+  //Start the chain of updates to digits, starting with left hour digit
+   clear_hour0();
+}
+
+
+
+/*
+* This is called by a system timer every minute change. It starts the display change.
+*/
+static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
+  #if TEST_DRIVER
+   if(tick_time->tm_sec % 5 == 0)
+     display_time(tick_time); 
+  #else
+    display_time(tick_time); 
+  #endif
+}
+
+
+static void display_time_postprocess(){
+  if( !first_display_done){
+  #if TEST_DRIVER
+    APP_LOG(APP_LOG_LEVEL_DEBUG,"%s", "display_time_postprocess, called TEST_DRIVER with 1sec timer");
+    tick_timer_service_subscribe(SECOND_UNIT, handle_minute_tick);  
+  #else
+    APP_LOG(APP_LOG_LEVEL_DEBUG,"%s", "display_time_postprocess, production mode with 1min timer");
+    tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
+  #endif
+    first_display_done=true;
+  }else{
+    
+  }
+  
+}
 
 
 static void show_minute1(){
     //this digit changed   
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute1, minute digit 1 changing from %d to %d", displayed_minute_digit_1,new_minute_digit_1);
-    displayed_minute_digit_1=new_minute_digit_1;
-    load_digit_image_into_slot(3,new_minute_digit_1,NULL); 
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute1, minute digit 1 changing from %d to %d", s_image_slot_state[3],new_minute_digit_1);
+    load_digit_image_into_slot(3,new_minute_digit_1,display_time_postprocess); 
 }
 
 static void clear_minute1(){
-  if(animate_all_digits || new_minute_digit_1!=displayed_minute_digit_1){
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute1: minute digit 1 changing %d", displayed_minute_digit_1);
+  if(animate_all_digits || new_minute_digit_1!=s_image_slot_state[3]){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute1: minute digit 1 changing %d", s_image_slot_state[3]);
     unload_digit_image_from_slot(3,show_minute1);  
   }else{
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute1: minute digit 1 staying %d", displayed_minute_digit_1);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute1: minute digit 1 staying %d", s_image_slot_state[3]);
     //no change, check next digit...
   }    
 }
@@ -250,8 +311,7 @@ static void clear_minute1(){
 
 static void show_minute0(){
     //this digit changed   
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute0, minute digit 0 changing from %d to %d", displayed_minute_digit_0,new_minute_digit_0);
-    displayed_minute_digit_0=new_minute_digit_0;
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_minute0, minute digit 0 changing from %d to %d", s_image_slot_state[2],new_minute_digit_0);
     load_digit_image_into_slot(2,new_minute_digit_0,clear_minute1); 
 }
 
@@ -259,11 +319,11 @@ static void show_minute0(){
 
 
 static void clear_minute0(){
-  if(animate_all_digits || new_minute_digit_0!=displayed_minute_digit_0){
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute0, minute digit 0 changing %d", displayed_minute_digit_0);
+  if(animate_all_digits || new_minute_digit_0!=s_image_slot_state[2]){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute0, minute digit 0 changing %d", s_image_slot_state[2]);
     unload_digit_image_from_slot(2,show_minute0);  
   }else{
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute0, minute digit 0 staying %d", displayed_minute_digit_0);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_minute0, minute digit 0 staying %d", s_image_slot_state[2]);
     clear_minute1();
   }    
 }
@@ -276,8 +336,7 @@ static void clear_minute0(){
 
 static void show_hour1(){
     //this digit changed   
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour1, hour digit 1 changing from %d to %d", displayed_hour_digit_1,new_hour_digit_1);
-    displayed_hour_digit_1=new_hour_digit_1;
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour1, hour digit 1 changing from %d to %d", s_image_slot_state[1],new_hour_digit_1);
     load_digit_image_into_slot(1,new_hour_digit_1,clear_minute0); 
 }
 
@@ -285,11 +344,11 @@ static void show_hour1(){
 
 
 static void clear_hour1(){
-  if(animate_all_digits || new_hour_digit_1!=displayed_hour_digit_1){
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour1, hour digit 1 changing %d", displayed_hour_digit_1);
+  if(animate_all_digits || new_hour_digit_1!=s_image_slot_state[1]){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour1: hour digit 1 changing %d", s_image_slot_state[1]);
     unload_digit_image_from_slot(1,show_hour1);  
   }else{
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour1, hour digit 1 staying %d", displayed_hour_digit_1);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour1: hour digit 1 staying %d", s_image_slot_state[1]);
     //no change, check next digit...
     clear_minute0();
   }  
@@ -303,24 +362,21 @@ static void clear_hour1(){
 
 static void show_hour0(){
     //this digit changed
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour0, hour digit 0 changing from %d to %d", displayed_hour_digit_0, new_hour_digit_0);
-    displayed_hour_digit_0=new_hour_digit_0;
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "show_hour0, hour digit 0 changing from %d to %d", s_image_slot_state[0], new_hour_digit_0);
     load_digit_image_into_slot(0,new_hour_digit_0,clear_hour1); 
 }
 
 
 static void clear_hour0(){
-  if(animate_all_digits || new_hour_digit_0!=displayed_hour_digit_0){
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour0, hour digit 0 changing %d", displayed_hour_digit_0);
+  if(animate_all_digits || new_hour_digit_0!=s_image_slot_state[0]){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour0: hour digit 0 changing %d", s_image_slot_state[0]);
     unload_digit_image_from_slot(0,show_hour0);
   }else{
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour0, hour digit 0 staying %d", displayed_hour_digit_0);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "clear_hour0: hour digit 0 staying %d", s_image_slot_state[0]);
     //no change, check next digit...
     clear_hour1();
   }
 }
-
-
 
 
 
@@ -338,74 +394,49 @@ static unsigned short get_display_hour(unsigned short hour) {
 }
 
 
-static void update_now_digits(struct tm *tick_time){
-  short hour = get_display_hour(tick_time->tm_hour);
-  short minutes = tick_time->tm_min;
-  new_hour_digit_0 = hour / 10;
-  new_hour_digit_1 = hour % 10;
-  new_minute_digit_0 = minutes / 10;
-  new_minute_digit_1 = minutes % 10;
-  //for testing force new digit change everytime...
-  new_hour_digit_0 = (displayed_hour_digit_0 + 1) % 10;
-  new_hour_digit_1 = (new_hour_digit_0 + 1)  % 10;
-  new_minute_digit_0 = (new_hour_digit_1 + 1) % 10;
-  new_minute_digit_1 = (new_minute_digit_0 + 1)  % 10;
+// static void update_now_digits(struct tm *tick_time){
+//   short hour = get_display_hour(tick_time->tm_hour);
+//   short minutes = tick_time->tm_min;
+//   new_hour_digit_0 = hour / 10;
+//   new_hour_digit_1 = hour % 10;
+//   new_minute_digit_0 = minutes / 10;
+//   new_minute_digit_1 = minutes % 10;
+//   //for testing force new digit change everytime...
+//   #if TEST_DRIVER
+// //    new_hour_digit_0 = (s_image_slot_state[0] + 1) % 10;
+// //    new_hour_digit_1 = (new_hour_digit_0 + 1)  % 10;
+// //    new_minute_digit_0 = (new_hour_digit_1 + 1) % 10;
+// //    new_minute_digit_1 = (new_minute_digit_0 + 1)  % 10;
+//   #endif
+//   //adjust transtion times, more digits changing shorten transition...
+//   short digit_change_count =1;
+//   if(new_hour_digit_0!=s_image_slot_state[0]) digit_change_count++;
+//   if(new_hour_digit_1!=s_image_slot_state[1]) digit_change_count++;
+//   if(new_minute_digit_0!=s_image_slot_state[2]) digit_change_count++;
+//   if(animate_all_digits) digit_change_count=4;
+//   //digit_change_count*2 to account for transition for remove and add of each digit
+//   transition_ms = TRANSITION_MS_DEFAULT / (digit_change_count*2);
+//   APP_LOG(APP_LOG_LEVEL_DEBUG, "update_now_digits: digits changed=%d, transition_time=%d, new time=%d%d:%d%d", 
+//           digit_change_count,transition_ms,new_hour_digit_0,new_hour_digit_1,new_minute_digit_0,new_minute_digit_1);
 
-  //adjust transtion times, more digits changing shorten transition...
-  short digit_change_count =1;
-  if(new_hour_digit_0!=displayed_hour_digit_0) digit_change_count++;
-  if(new_hour_digit_1!=displayed_hour_digit_1) digit_change_count++;
-  if(new_minute_digit_0!=displayed_minute_digit_0) digit_change_count++;
-  if(animate_all_digits) digit_change_count=4;
-  //digit_change_count*2 to account for transition for remove and add of each digit
-  transition_ms = TRANSITION_MS_DEFAULT / (digit_change_count*2);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "update_now_digits: digits changed=%d, transition_time=%d", digit_change_count,transition_ms);
-
-}
-
-
-/*
-* This function sets the current time 
-* digit values and then calls a method that will call others to make the digit changes.
-*/
-static void display_time(struct tm *tick_time) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "\n\ndisplay_time, called at %d:%d:%d", tick_time->tm_hour,tick_time->tm_min,tick_time->tm_sec);
-
-  //first set now digits...
-  update_now_digits(tick_time);
-  
-  
-  clear_hour0();
-
-}
+// }
 
 
-
-/*
-* This is called by a system timer every minute change. It starts the display change.
-*/
-static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
-  int seconds = tick_time->tm_sec;
-  if(seconds % 5 == 0){
-   display_time(tick_time); 
- }
-}
 
 
 
 static void main_window_load(Window *window) {
   time_t now = time(NULL);
   struct tm *tick_time = localtime(&now);
-  update_now_digits(tick_time);
   display_time(tick_time);
 
-    tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
-  tick_timer_service_subscribe(SECOND_UNIT, handle_minute_tick);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "main_window_load: slot values= %d,%d,%d,%d",s_image_slot_state[0],s_image_slot_state[1],s_image_slot_state[2],s_image_slot_state[3] );
 }
 
 
 
 static void main_window_unload(Window *window) {
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "main_window_unload: %s", "unloading");
   for (int i = 0; i < TOTAL_IMAGE_SLOTS; i++) {
     unload_digit_image_from_slot(i,NULL);
   }
