@@ -157,7 +157,7 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
   } 
   //slide out horizontially...
   int startx,starty,endx,endy;
-     APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive -2");
+//   APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive -2");
   startx = 0 ;
   starty = 0 ;
   endx = 0-DIGIT_HEIGHT;
@@ -177,9 +177,9 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
   #ifdef PBL_PLATFORM_BASALT
     GRect bounds = gbitmap_get_bounds(s_images[slot_number]);
   #else
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive -1");
+//     APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive -1");
     GRect bounds = s_images[slot_number]->bounds;
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 0");
+//   APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 0");
   #endif
 
   GRect from_frame = GRect(startx, starty, bounds.size.w, bounds.size.h);
@@ -189,13 +189,13 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
       // Free the animation
       property_animation_destroy(s_property_animation);
     #endif
-         APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 1");
+//          APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 1");
 
     //animate...
     s_property_animation = property_animation_create_layer_frame(bitmap_layer_get_layer(s_image_layers[slot_number]), &from_frame, &to_frame);
     //set duration
     animation_set_duration((Animation*) s_property_animation, transition_ms);
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 2");
+//       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 2");
 
     if(next_call!=NULL){
       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot, callback handler will be called %d",1);
@@ -203,11 +203,11 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
         .stopped = (AnimationStoppedHandler) next_call
       }, NULL);
     }else{
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot, callback handler is null %d",1);
+//       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot, callback handler is null %d",1);
 
     }
     animation_schedule((Animation*) s_property_animation);
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 3");
+//       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 3");
 
   } else {
     //     empty slot, do next call...
@@ -267,6 +267,7 @@ static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
    if(tick_time->tm_sec % 5 == 0)
      display_time(tick_time); 
   #else
+    APP_LOG(APP_LOG_LEVEL_DEBUG,"%s", "handle_minute_tick: calling display_time as production call");
     display_time(tick_time); 
   #endif
 }
@@ -394,33 +395,6 @@ static unsigned short get_display_hour(unsigned short hour) {
 }
 
 
-// static void update_now_digits(struct tm *tick_time){
-//   short hour = get_display_hour(tick_time->tm_hour);
-//   short minutes = tick_time->tm_min;
-//   new_hour_digit_0 = hour / 10;
-//   new_hour_digit_1 = hour % 10;
-//   new_minute_digit_0 = minutes / 10;
-//   new_minute_digit_1 = minutes % 10;
-//   //for testing force new digit change everytime...
-//   #if TEST_DRIVER
-// //    new_hour_digit_0 = (s_image_slot_state[0] + 1) % 10;
-// //    new_hour_digit_1 = (new_hour_digit_0 + 1)  % 10;
-// //    new_minute_digit_0 = (new_hour_digit_1 + 1) % 10;
-// //    new_minute_digit_1 = (new_minute_digit_0 + 1)  % 10;
-//   #endif
-//   //adjust transtion times, more digits changing shorten transition...
-//   short digit_change_count =1;
-//   if(new_hour_digit_0!=s_image_slot_state[0]) digit_change_count++;
-//   if(new_hour_digit_1!=s_image_slot_state[1]) digit_change_count++;
-//   if(new_minute_digit_0!=s_image_slot_state[2]) digit_change_count++;
-//   if(animate_all_digits) digit_change_count=4;
-//   //digit_change_count*2 to account for transition for remove and add of each digit
-//   transition_ms = TRANSITION_MS_DEFAULT / (digit_change_count*2);
-//   APP_LOG(APP_LOG_LEVEL_DEBUG, "update_now_digits: digits changed=%d, transition_time=%d, new time=%d%d:%d%d", 
-//           digit_change_count,transition_ms,new_hour_digit_0,new_hour_digit_1,new_minute_digit_0,new_minute_digit_1);
-
-// }
-
 
 
 
@@ -429,7 +403,6 @@ static void main_window_load(Window *window) {
   time_t now = time(NULL);
   struct tm *tick_time = localtime(&now);
   display_time(tick_time);
-
     APP_LOG(APP_LOG_LEVEL_DEBUG, "main_window_load: slot values= %d,%d,%d,%d",s_image_slot_state[0],s_image_slot_state[1],s_image_slot_state[2],s_image_slot_state[3] );
 }
 

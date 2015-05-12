@@ -69,10 +69,10 @@
     "sdkVersion": "3",
     "shortName": "Mongo Time",
     "targetPlatforms": [
-        "aplite"
+        "aplite",
+        "basalt"
     ],
-    "uuid": "afcc6876-8f84-44e0-bb8b-023ffb2d7c2c",
-    "versionCode": 6,
+    "uuid": "dae30f67-a707-43cd-8c2b-1a792b2af335",
     "versionLabel": "0.1",
     "watchapp": {
         "watchface": true
