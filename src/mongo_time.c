@@ -29,7 +29,7 @@ ref: http://www.newty.de/fpt/fpt.html#passPtr
 //     2 3
 #define TOTAL_IMAGE_SLOTS 4
 #define NUMBER_OF_IMAGES 10
-#define TRANSITION_MS_DEFAULT 2000
+#define TRANSITION_MS_DEFAULT 3000
 #define DIGIT_WIDTH  72
 #define DIGIT_HEIGHT  84  
 #define EMPTY_SLOT -1
@@ -167,7 +167,6 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
   } 
   //slide out horizontially...
   int startx,starty,endx,endy;
-//   APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive -2");
   startx = 0 ;
   starty = 0 ;
   endx = 0-DIGIT_HEIGHT;
@@ -187,9 +186,7 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
   #ifdef PBL_PLATFORM_BASALT
     GRect bounds = gbitmap_get_bounds(s_images[slot_number]);
   #else
-//     APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive -1");
     GRect bounds = s_images[slot_number]->bounds;
-//   APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 0");
   #endif
 
   GRect from_frame = GRect(startx, starty, bounds.size.w, bounds.size.h);
@@ -199,13 +196,11 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
       // Free the animation
       property_animation_destroy(s_property_animation);
     #endif
-//          APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 1");
 
     //animate...
     s_property_animation = property_animation_create_layer_frame(bitmap_layer_get_layer(s_image_layers[slot_number]), &from_frame, &to_frame);
     //set duration
     animation_set_duration((Animation*) s_property_animation, transition_ms);
-//       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 2");
 
     if(next_call!=NULL){
       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot, callback handler will be called %d",1);
@@ -213,11 +208,9 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
         .stopped = (AnimationStoppedHandler) next_call
       }, NULL);
     }else{
-//       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot, callback handler is null %d",1);
 
     }
     animation_schedule((Animation*) s_property_animation);
-//       APP_LOG(APP_LOG_LEVEL_DEBUG, "unload_digit_image_from_slot: %s", "still alive 3");
 
   } else {
     //     empty slot, do next call...
@@ -247,10 +240,10 @@ static void display_time(struct tm *tick_time) {
   new_minute_digit_1 = minutes % 10;
   //for testing force new digit change everytime...
   #if TEST_DRIVER
-//    new_hour_digit_0 = (s_image_slot_state[0] + 1) % 10;
-//    new_hour_digit_1 = (new_hour_digit_0 + 1)  % 10;
-//    new_minute_digit_0 = (new_hour_digit_1 + 1) % 10;
-//    new_minute_digit_1 = (new_minute_digit_0 + 1)  % 10;
+   new_hour_digit_0 = (s_image_slot_state[0] + 1) % 10;
+   new_hour_digit_1 = (new_hour_digit_0 + 1)  % 10;
+   new_minute_digit_0 = (new_hour_digit_1 + 1) % 10;
+   new_minute_digit_1 = (new_minute_digit_0 + 1)  % 10;
   #endif
   //adjust transtion times, more digits changing shorten transition...
   short digit_change_count =1;
