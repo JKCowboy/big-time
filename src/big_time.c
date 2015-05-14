@@ -226,7 +226,7 @@ static void unload_digit_image_from_slot(int slot_number,void (*next_call)()) {
 * digit values and then calls a method that will call others to make the digit changes.
 */
 static void display_time(struct tm *tick_time) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "\n\ndisplay_time: called at %d:%d:%d", tick_time->tm_hour,tick_time->tm_min,tick_time->tm_sec);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "\n===\ndisplay_time: called at %d:%d:%d", tick_time->tm_hour,tick_time->tm_min,tick_time->tm_sec);
 
   //first set now digits...
   short hour = get_display_hour(tick_time->tm_hour);
@@ -264,10 +264,11 @@ static void display_time(struct tm *tick_time) {
 */
 static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
   #if TEST_DRIVER
+    APP_LOG(APP_LOG_LEVEL_DEBUG,"%s", "\n\nhandle_minute_tick: calling display_time as TEST_DRIVER");
    if(tick_time->tm_sec % 5 == 0)
      display_time(tick_time); 
   #else
-    APP_LOG(APP_LOG_LEVEL_DEBUG,"%s", "handle_minute_tick: calling display_time as production call");
+    APP_LOG(APP_LOG_LEVEL_DEBUG,"%s", "\n\nhandle_minute_tick: calling display_time as production call");
     display_time(tick_time); 
   #endif
 }
